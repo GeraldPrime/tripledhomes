@@ -2385,7 +2385,7 @@ def realtor_status_api(request, realtor_id):
 def realtor_register(request, referral_code=None):
     # Determine sponsor code
     sponsor_code = (
-        referral_code if referral_code else "44709285"
+        referral_code if referral_code else "29496781"
     )  # Default sponsor code
 
     # Verify if referral code exists (optional validation)
@@ -2393,7 +2393,7 @@ def realtor_register(request, referral_code=None):
     if referral_code:
         sponsor_exists = Realtor.objects.filter(referral_code=referral_code).exists()
         if not sponsor_exists:
-            sponsor_code = "44709285"  # Fall back to default if invalid
+            sponsor_code = "29496781"  # Fall back to default if invalid
 
     if request.method == "POST":
         try:
