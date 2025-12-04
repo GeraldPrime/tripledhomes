@@ -33,6 +33,10 @@ ALLOWED_HOSTS = [
     'machovector2.pythonanywhere.com',
      'localhost', 
      '127.0.0.1',
+     'tripledhomes.org',
+     'www.tripledhomes.org',
+     '31.97.114.61',
+     '31.97.114.61:8001'
     ]
 
 
