@@ -423,7 +423,11 @@ def create_realtor(request):
         account_name = request.POST.get("accountname")
         address = request.POST.get("address")
         country = request.POST.get("country")
-        sponsor_code = request.POST.get("sponsorcode")
+        sponsor_code = request.POST.get("sponsorcode", "").strip()
+        
+        # Use default sponsor code if not provided
+        if not sponsor_code:
+            sponsor_code = "29496781"
 
         # Create new realtor instance
         realtor = Realtor(
@@ -446,7 +450,7 @@ def create_realtor(request):
         # Save the realtor (this will also generate the referral code)
         try:
             with transaction.atomic():
-                realtor.save()
+            realtor.save()
                 
                 # CRITICAL: Verify ID was assigned
                 if not realtor.pk:
@@ -686,9 +690,9 @@ def register_property(request):
 
         # Create new property
         with transaction.atomic():
-            property = Property.objects.create(
-                name=name, description=description, location=location, address=address
-            )
+        property = Property.objects.create(
+            name=name, description=description, location=location, address=address
+        )
             
             # CRITICAL: Verify ID was assigned
             if not property.pk:
@@ -839,7 +843,7 @@ def send_client_email(request, sale_id):
 
         # Build absolute URL for logo (required for email clients)
         logo_url = request.build_absolute_uri('/static/user/images/tripledlogo.jpeg')
-        
+
         # Prepare context for email template
         context = {
             "client_name": sale.client_name,
@@ -1569,43 +1573,43 @@ def register_property_sale(request):  # with expiry date
 
             # Create the property sale object with all fields
             with transaction.atomic():
-                property_sale = PropertySale.objects.create(
-                    description=description,
-                    property_type=property_type,
-                    property_item=property_obj,
-                    quantity=quantity_int,
-                    client_name=client_name,
-                    client_address=client_address,
-                    client_phone=client_phone,
-                    client_email=client_email,
-                    marital_status=marital_status,
-                    spouse_name=spouse_name,
-                    spouse_phone=spouse_phone,
-                    # Add to client information section
-                    client_picture=client_picture,
-                    id_type=id_type,
-                    id_number=id_number,
-                    # Add the new plot development timeline fields
-                    plot_development_start_date=plot_development_start_date,
-                    plot_development_expiry_date=plot_development_expiry_date,
-                    lga_of_origin=lga_of_origin,
-                    town_of_origin=town_of_origin,
-                    state_of_origin=state_of_origin,
-                    bank_name=bank_name,
-                    account_number=account_number,
-                    account_name=account_name,
-                    next_of_kin_name=next_of_kin_name,
-                    next_of_kin_address=next_of_kin_address,
-                    next_of_kin_phone=next_of_kin_phone,
-                    original_price=original_price_decimal,
-                    selling_price=selling_price_decimal,
-                    payment_plan=payment_plan,
-                    # Add to pricing section
-                    discount=discount_decimal,
-                    realtor=realtor,
-                    realtor_commission_percentage=realtor_commission_decimal,
-                    sponsor_commission_percentage=sponsor_commission_decimal,
-                    upline_commission_percentage=upline_commission_decimal,
+            property_sale = PropertySale.objects.create(
+                description=description,
+                property_type=property_type,
+                property_item=property_obj,
+                quantity=quantity_int,
+                client_name=client_name,
+                client_address=client_address,
+                client_phone=client_phone,
+                client_email=client_email,
+                marital_status=marital_status,
+                spouse_name=spouse_name,
+                spouse_phone=spouse_phone,
+                # Add to client information section
+                client_picture=client_picture,
+                id_type=id_type,
+                id_number=id_number,
+                # Add the new plot development timeline fields
+                plot_development_start_date=plot_development_start_date,
+                plot_development_expiry_date=plot_development_expiry_date,
+                lga_of_origin=lga_of_origin,
+                town_of_origin=town_of_origin,
+                state_of_origin=state_of_origin,
+                bank_name=bank_name,
+                account_number=account_number,
+                account_name=account_name,
+                next_of_kin_name=next_of_kin_name,
+                next_of_kin_address=next_of_kin_address,
+                next_of_kin_phone=next_of_kin_phone,
+                original_price=original_price_decimal,
+                selling_price=selling_price_decimal,
+                payment_plan=payment_plan,
+                # Add to pricing section
+                discount=discount_decimal,
+                realtor=realtor,
+                realtor_commission_percentage=realtor_commission_decimal,
+                sponsor_commission_percentage=sponsor_commission_decimal,
+                upline_commission_percentage=upline_commission_decimal,
                     created_by=request.user,  # Automatically track who created this sale
                 )
                 
@@ -1616,24 +1620,24 @@ def register_property_sale(request):  # with expiry date
                 # Refresh from database to ensure all fields are properly set
                 property_sale.refresh_from_db()
 
-                # Create initial payment if provided
-                if initial_payment_decimal > 0:
-                    # Update the amount_paid field first
-                    property_sale.amount_paid = initial_payment_decimal
-                    property_sale.save()
+            # Create initial payment if provided
+            if initial_payment_decimal > 0:
+                # Update the amount_paid field first
+                property_sale.amount_paid = initial_payment_decimal
+                property_sale.save()
                     
                     # CRITICAL: Verify property_sale still has ID after save
                     if not property_sale.pk:
                         raise ValueError("PropertySale lost its ID after save. This should never happen.")
 
-                    # Create the payment record with the validated payment_date
+                # Create the payment record with the validated payment_date
                     payment = Payment.objects.create(
-                        property_sale=property_sale,
-                        amount=initial_payment_decimal,
-                        payment_method="Cash",
-                        notes="Initial payment at registration",
-                        payment_date=payment_date,
-                    )
+                    property_sale=property_sale,
+                    amount=initial_payment_decimal,
+                    payment_method="Cash",
+                    notes="Initial payment at registration",
+                    payment_date=payment_date,
+                )
                     
                     # CRITICAL: Verify payment got an ID
                     if not payment.pk:
@@ -1769,15 +1773,15 @@ def property_sale_detail(request, id):
 
                 # Create new payment - this will automatically update the sale's amount_paid in the Payment.save() method
                 with transaction.atomic():
-                    payment = Payment(
-                        property_sale=sale,
-                        amount=amount,
-                        payment_method=payment_method,
-                        reference=reference,
-                        notes=notes,
-                        payment_date=payment_date,
-                    )
-                    payment.save()
+                payment = Payment(
+                    property_sale=sale,
+                    amount=amount,
+                    payment_method=payment_method,
+                    reference=reference,
+                    notes=notes,
+                    payment_date=payment_date,
+                )
+                payment.save()
                     
                     # CRITICAL: Verify ID was assigned
                     if not payment.pk:
