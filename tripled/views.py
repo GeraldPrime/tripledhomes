@@ -450,12 +450,12 @@ def create_realtor(request):
         # Save the realtor (this will also generate the referral code)
         try:
             with transaction.atomic():
-            realtor.save()
-                
+                realtor.save()
+
                 # CRITICAL: Verify ID was assigned
                 if not realtor.pk:
                     raise ValueError("Realtor was saved but did not receive an ID. This should never happen.")
-                
+
                 # Refresh from database to ensure all fields are properly set
                 realtor.refresh_from_db()
 
@@ -690,10 +690,10 @@ def register_property(request):
 
         # Create new property
         with transaction.atomic():
-        property = Property.objects.create(
-            name=name, description=description, location=location, address=address
-        )
-            
+            property = Property.objects.create(
+                name=name, description=description, location=location, address=address
+            )
+
             # CRITICAL: Verify ID was assigned
             if not property.pk:
                 raise ValueError("Property was created but did not receive an ID. This should never happen.")
@@ -1573,12 +1573,12 @@ def register_property_sale(request):  # with expiry date
 
             # Create the property sale object with all fields
             with transaction.atomic():
-            property_sale = PropertySale.objects.create(
-                description=description,
-                property_type=property_type,
-                property_item=property_obj,
-                quantity=quantity_int,
-                client_name=client_name,
+                property_sale = PropertySale.objects.create(
+                    description=description,
+                    property_type=property_type,
+                    property_item=property_obj,
+                    quantity=quantity_int,
+                    client_name=client_name,
                 client_address=client_address,
                 client_phone=client_phone,
                 client_email=client_email,
@@ -1774,19 +1774,19 @@ def property_sale_detail(request, id):
 
                 # Create new payment - this will automatically update the sale's amount_paid in the Payment.save() method
                 with transaction.atomic():
-                payment = Payment(
-                    property_sale=sale,
-                    amount=amount,
-                    payment_method=payment_method,
+                    payment = Payment(
+                        property_sale=sale,
+                        amount=amount,
+                        payment_method=payment_method,
                     reference=reference,
                     notes=notes,
                     payment_date=payment_date,
                 )
                 payment.save()
-                    
-                    # CRITICAL: Verify ID was assigned
-                    if not payment.pk:
-                        raise ValueError("Payment was saved but did not receive an ID. This should never happen.")
+
+                # CRITICAL: Verify ID was assigned
+                if not payment.pk:
+                    raise ValueError("Payment was saved but did not receive an ID. This should never happen.")
 
                 # Refresh the sale object to get updated values after payment
                 sale.refresh_from_db()
