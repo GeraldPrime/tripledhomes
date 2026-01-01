@@ -363,6 +363,12 @@
                         <span> General Settings</span>
                     </a>
                 </li>
+                <li class="side-nav-item">
+                    <a href="/admin/" class="side-nav-link">
+                        <i class="ri-settings-line fs-18 align-middle me-1"></i>
+                        <span> Django Admin</span>
+                    </a>
+                </li>
                 {% endif %}
 
                 {% if request.is_chief_admin or user.user_type == 'chief_accountant' or user.user_type == 'branch_admin' %}
