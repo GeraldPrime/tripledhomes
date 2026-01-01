@@ -3369,7 +3369,10 @@ def secretary_dashboard(request):
 
 def homepage(request):
     """Frontend website homepage"""
-    return render(request, 'estate/index.html')
+    properties = WebsiteProperty.objects.filter(is_visible=True).order_by('-created_at')
+    return render(request, 'estate/index.html', {'properties': properties})
+
+
 
 
 def about(request):
