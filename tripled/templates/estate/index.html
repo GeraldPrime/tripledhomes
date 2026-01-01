@@ -268,42 +268,28 @@
 		</div>				
 		<div class="row">
 			<div class="active-blog-carusel">
+                {% for property in properties %}
 				<div class="single-blog-post item">
 					<div class="thumb">
-						<img class="img-fluid" src="{% static 'estate/estateimg/img1.jpg' %}" alt="" style="height: 250px; width: 100%; object-fit: cover;">
+                        {% if property.main_image %}
+						<img class="img-fluid" src="{{ property.main_image.url }}" alt="{{ property.name }}" style="height: 250px; width: 100%; object-fit: cover;">
+                        {% else %}
+						<img class="img-fluid" src="{% static 'estate/estateimg/img1.jpg' %}" alt="{{ property.name }}" style="height: 250px; width: 100%; object-fit: cover;">
+                        {% endif %}
 					</div>
 					<div class="details">
-						<a href="{% url 'properties' %}"><h4 class="title">Royal Gardens Estate</h4></a>
+						<a href="{% url 'properties' %}"><h4 class="title">{{ property.name }}</h4></a>
 						<p>
-							A serene environment tailored for luxury and comfort matching your...
+							{{ property.description|truncatewords:20 }}
 						</p>
 						<a href="{% url 'properties' %}" class="primary-btn mt-20 text-uppercase">See More</a>
 					</div>	
 				</div>
-				<div class="single-blog-post item">
-					<div class="thumb">
-						<img class="img-fluid" src="{% static 'estate/estateimg/img2.jpg' %}" alt="" style="height: 250px; width: 100%; object-fit: cover;">
-					</div>
-					<div class="details">
-						<a href="{% url 'properties' %}"><h4 class="title">Sapphire Courts</h4></a>
-						<p>
-							Modern architecture meeting nature in a perfect blend of style...
-						</p>
-						<a href="{% url 'properties' %}" class="primary-btn mt-20 text-uppercase">See More</a>
-					</div>	
-				</div>
-				<div class="single-blog-post item">
-					<div class="thumb">
-						<img class="img-fluid" src="{% static 'estate/estateimg/img3.jpg' %}" alt="" style="height: 250px; width: 100%; object-fit: cover;">
-					</div>
-					<div class="details">
-						<a href="{% url 'properties' %}"><h4 class="title">Emerald Heights</h4></a>
-						<p>
-							Elevate your lifestyle with our premium high-rise apartments and amenities...
-						</p>
-						<a href="{% url 'properties' %}" class="primary-btn mt-20 text-uppercase">See More</a>
-					</div>	
-				</div>	
+                {% empty %}
+                <div class="col-12 text-center py-5">
+                    <p class="text-muted">Stay tuned for our upcoming listings.</p>
+                </div>
+                {% endfor %}
 			</div>
 		</div>
 	</div>	
