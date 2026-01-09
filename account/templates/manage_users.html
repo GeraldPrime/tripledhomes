@@ -130,6 +130,7 @@
           <thead class="table-light">
             <tr>
               <th>Administrator</th>
+              <th>Username</th>
               <th>Contact</th>
               <th>Branches</th>
               <th>Joined</th>
@@ -162,6 +163,12 @@
                     </div>
                   </div>
                 </div>
+              </td>
+              <td>
+                <span class="badge bg-light text-dark border">
+                  <i class="material-icons md-person me-1" style="font-size: 13px; vertical-align: middle;"></i>
+                  {{ user.username }}
+                </span>
               </td>
               <td>
                 <div class="d-flex flex-column">

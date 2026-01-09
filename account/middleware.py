@@ -17,6 +17,9 @@ class AccountingSecurityMiddleware:
         # Check if the path belongs to the accounting app
         # Most accounting URLs start with /accounting/ based on the project URL structure
         if request.path.startswith('/accounting/'):
+            # If user is not authenticated, redirect to accounting login instead of default login
+            if not request.user.is_authenticated:
+                return redirect('accounting:login')
             
             # CRITICAL SECURITY: Only Django superusers and chief accountants can access
             # the accounting dashboard. This blocks:
