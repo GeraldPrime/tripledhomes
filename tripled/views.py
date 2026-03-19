@@ -2774,7 +2774,7 @@ def realtor_register(request, referral_code=None):
                 messages.error(request, "All fields are required.")
                 return render(
                     request,
-                    "realtor_register.html",
+                    "estate/realtor_register.html",
                     {"sponsor_code": sponsor_code, "form_data": request.POST},
                 )
 
@@ -2788,7 +2788,7 @@ def realtor_register(request, referral_code=None):
                 )
                 return render(
                     request,
-                    "realtor_register.html",
+                    "estate/realtor_register.html",
                     {"sponsor_code": sponsor_code, "form_data": request.POST},
                 )
             
@@ -2797,7 +2797,7 @@ def realtor_register(request, referral_code=None):
                 messages.error(request, "Registration is currently only available for Nigerian realtors.")
                 return render(
                     request,
-                    "realtor_register.html",
+                    "estate/realtor_register.html",
                     {"sponsor_code": sponsor_code, "form_data": request.POST},
                 )
             
@@ -2806,7 +2806,7 @@ def realtor_register(request, referral_code=None):
                 messages.error(request, "A realtor with this email already exists.")
                 return render(
                     request,
-                    "realtor_register.html",
+                    "estate/realtor_register.html",
                     {"sponsor_code": sponsor_code, "form_data": request.POST},
                 )
 
