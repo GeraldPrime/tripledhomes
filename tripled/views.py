@@ -68,6 +68,7 @@ import json
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.cache import cache_control
 from django.conf import settings
+from django.core.cache import cache
 # import boto3
 # from botocore.exceptions import ClientError
 
@@ -86,9 +87,95 @@ from .helper import admin_required, admin_or_secretary_required, secretary_requi
 from django.db import transaction
 import string
 import random
+import hashlib
+import secrets
+import time
 
 
 logger = logging.getLogger(__name__)
+
+CONTACT_TOKEN_TTL = 30 * 60
+CONTACT_MIN_SECONDS = 7
+CONTACT_SUCCESS_MESSAGE = (
+    "Thank you! Your message has been received. We will get back to you soon."
+)
+
+
+def _client_ip(request):
+    forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "")
+
+
+def _subnet_key(ip):
+    parts = ip.split(".")
+    if len(parts) == 4:
+        return ".".join(parts[:3]) + ".0/24"
+    return ip or "unknown"
+
+
+def _cache_limited(key, limit, timeout):
+    added = cache.add(key, 1, timeout)
+    if added:
+        return False
+    try:
+        count = cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, timeout)
+        return False
+    return count > limit
+
+
+def _issue_contact_token(request):
+    token = secrets.token_urlsafe(32)
+    now = time.time()
+    tokens = request.session.get("contact_tokens", {})
+    tokens = {
+        key: issued_at
+        for key, issued_at in tokens.items()
+        if now - float(issued_at) <= CONTACT_TOKEN_TTL
+    }
+    tokens[token] = now
+    request.session["contact_tokens"] = tokens
+    request.session.modified = True
+    return token
+
+
+def _silent_contact_success():
+    return JsonResponse({"success": True, "message": CONTACT_SUCCESS_MESSAGE})
+
+
+def _contact_post_allowed(request, email):
+    ip = _client_ip(request)
+    email_key = hashlib.sha256(email.lower().encode("utf-8")).hexdigest()
+    user_agent_key = hashlib.sha256(
+        request.META.get("HTTP_USER_AGENT", "").encode("utf-8")
+    ).hexdigest()
+
+    checks = [
+        (f"contact_rate:ip:{ip}", 5, 60 * 60),
+        (f"contact_rate:subnet:{_subnet_key(ip)}", 30, 60 * 60),
+        (f"contact_rate:email:{email_key}", 2, 24 * 60 * 60),
+        (f"contact_rate:ua:{user_agent_key}", 20, 60 * 60),
+    ]
+    return not any(_cache_limited(*check) for check in checks)
+
+
+def _valid_contact_token(request):
+    token = request.POST.get("contact_token", "")
+    if not token:
+        return False
+
+    tokens = request.session.get("contact_tokens", {})
+    issued_at = tokens.pop(token, None)
+    if not issued_at:
+        return False
+
+    request.session["contact_tokens"] = tokens
+    request.session.modified = True
+    age = time.time() - float(issued_at)
+    return CONTACT_MIN_SECONDS <= age <= CONTACT_TOKEN_TTL
 
 
 # User = get_user_model()
@@ -512,9 +599,9 @@ def create_realtor(request):
     """View for creating a new realtor profile"""
     if request.method == "POST":
         # Extract form data
-        first_name = request.POST.get("firstname")
-        last_name = request.POST.get("lastname")
-        email = request.POST.get("email")
+        first_name = request.POST.get("firstname", "").strip()
+        last_name = request.POST.get("lastname", "").strip()
+        email = request.POST.get("email", "").strip()
         phone = request.POST.get("phone")
         account_number = request.POST.get("accnumber")
         bank_name = request.POST.get("bankname")
@@ -522,6 +609,17 @@ def create_realtor(request):
         address = request.POST.get("address")
         country = request.POST.get("country")
         sponsor_code = request.POST.get("sponsorcode", "").strip()
+
+        existing_realtor = Realtor.objects.filter(email__iexact=email).first()
+        if existing_realtor:
+            messages.error(
+                request,
+                (
+                    "A realtor with this email already exists. "
+                    f"Referral code: {existing_realtor.referral_code}."
+                ),
+            )
+            return render(request, "user/create_realtor.html")
         
         # Use default sponsor code if not provided
         if not sponsor_code:
@@ -2888,7 +2986,11 @@ For support, contact us through our official channels.
                 logger.info(f"Welcome email sent successfully to {email}")
                 messages.success(
                     request,
-                    "Registration successful! A welcome email with your referral details has been sent to your email address.",
+                    (
+                        "Registration successful! Your referral code and link are "
+                        "shown below, and a welcome email has been sent to your "
+                        "email address."
+                    ),
                 )
 
             except Exception as email_error:
@@ -2897,7 +2999,10 @@ For support, contact us through our official channels.
                 )
                 messages.warning(
                     request,
-                    "Registration successful! However, there was an issue sending the welcome email. Please contact support for your referral details.",
+                    (
+                        "Registration successful! We could not send the welcome "
+                        "email, but your referral code and link are shown below."
+                    ),
                 )
 
             # Redirect to success page or show success message with referral code
@@ -3383,25 +3488,14 @@ def about(request):
 def contact(request):
     """Frontend website contact page with email functionality"""
     if request.method == 'POST':
-        import time
-        
-        # Check for honeypot field (bot prevention)
-        honeypot = request.POST.get('website', '')
+        # Check honeypot fields first. Return success without sending email so bots
+        # do not learn which rule caught them.
+        honeypot = request.POST.get('website', '') or request.POST.get('company_url', '')
         if honeypot:
-            # Bot detected - return success to confuse bots
-            return JsonResponse({'success': True, 'message': 'Message sent successfully!'})
-        
-        # Check timestamp field for form timing (too fast = likely bot)
-        form_timestamp = request.POST.get('form_timestamp', '')
-        if form_timestamp:
-            try:
-                submission_time = float(form_timestamp)
-                current_time = time.time()
-                # If form was submitted in less than 3 seconds, likely a bot
-                if current_time - submission_time < 3:
-                    return JsonResponse({'success': True, 'message': 'Message sent successfully!'})
-            except (ValueError, TypeError):
-                pass
+            return _silent_contact_success()
+
+        if request.POST.get('human_signal') != '1':
+            return _silent_contact_success()
         
         # Get form data
         name = request.POST.get('name', '').strip()
@@ -3424,6 +3518,21 @@ def contact(request):
                 'success': False, 
                 'message': 'Please enter a valid email address.'
             }, status=400)
+
+        if not _valid_contact_token(request):
+            logger.warning(
+                "Blocked contact form submission with invalid token from %s",
+                _client_ip(request),
+            )
+            return _silent_contact_success()
+
+        if not _contact_post_allowed(request, email):
+            logger.warning(
+                "Rate-limited contact form submission from %s for %s",
+                _client_ip(request),
+                email,
+            )
+            return _silent_contact_success()
         
         # Prepare email content
         full_subject = f"[Triple D Homes Contact] {subject}"
@@ -3463,63 +3572,25 @@ To reply, simply respond to this email or contact {email} directly.
                 reply_to=[email],  # Set reply-to as the sender's email
             )
             email_msg.send(fail_silently=False)
-            
-            # Also send a confirmation email to the sender (this can stay as send_mail as it doesn't need reply_to)
-            confirmation_subject = "Thank you for contacting Triple D Big Dream Homes"
-            confirmation_message = f"""
-Dear {name},
 
-Thank you for reaching out to Triple D Big Dream Homes!
-
-We have received your message and one of our team members will get back to you as soon as possible, typically within 24-48 hours.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-YOUR MESSAGE SUMMARY:
-• Subject: {subject}
-• Message: {message[:200]}{'...' if len(message) > 200 else ''}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-In the meantime, feel free to:
-• Browse our properties at our website
-• Call us at +234 703 660 8088
-• Visit one of our offices:
-  - Lagos: 66 Shehu Hussein Arikewuyo St, Lakeview Estate Ph II, Amuwo Odofin
-  - Enugu: Suit 1 Adonai Complex, No 2 Onyiuke St, Off Edimbo Rd, Ogui New Layout
-  - Awka: Shop B8/B11, Block C, Millennium Plaza, Aroma
-
-Best regards,
-The Triple D Big Dream Homes Team
-            """.strip()
-            
-            try:
-                send_mail(
-                    subject=confirmation_subject,
-                    message=confirmation_message,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[email],
-                    fail_silently=True,  # Don't fail if confirmation email fails
-                )
-            except Exception:
-                pass  # Ignore confirmation email errors
-            
             logger.info(f"Contact form submitted successfully from {name} ({email})")
             
             return JsonResponse({
                 'success': True, 
-                'message': 'Thank you! Your message has been sent successfully. We will get back to you soon.'
+                'message': CONTACT_SUCCESS_MESSAGE,
+                'contact_token': _issue_contact_token(request),
             })
             
         except Exception as e:
             logger.error(f"Failed to send contact form email: {str(e)}")
             return JsonResponse({
                 'success': False, 
-                'message': 'Sorry, there was an error sending your message. Please try again later or contact us directly.'
+                'message': 'Sorry, there was an error sending your message. Please try again later or contact us directly.',
+                'contact_token': _issue_contact_token(request),
             }, status=500)
     
     # GET request - just render the form
-    return render(request, 'estate/contact.html')
+    return render(request, 'estate/contact.html', {'contact_token': _issue_contact_token(request)})
 
 
 def properties(request):
@@ -3734,4 +3805,3 @@ def download_form(request, form_id):
         return FileResponse(form_obj.file.open('rb'), as_attachment=True, filename=os.path.basename(form_obj.file.name))
     except Exception as e:
         raise Http404("File not found")
-

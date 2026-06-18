@@ -137,7 +137,11 @@
                         <div class="visually-hidden">
                             <label for="website">Website</label>
                             <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+                            <label for="companyUrl">Company URL</label>
+                            <input type="text" id="companyUrl" name="company_url" tabindex="-1" autocomplete="off">
                             <input type="hidden" name="form_timestamp" id="formTimestamp">
+                            <input type="hidden" name="human_signal" id="humanSignal" value="0">
+                            <input type="hidden" name="contact_token" id="contactToken" value="{{ contact_token }}">
                         </div>
 
                         <div class="row">
@@ -231,6 +235,14 @@
         
         const contactForm = document.getElementById('contactForm');
         const loadingOverlay = document.getElementById('loadingOverlay');
+        const humanSignal = document.getElementById('humanSignal');
+        const contactToken = document.getElementById('contactToken');
+
+        ['mousemove', 'keydown', 'touchstart', 'scroll', 'click'].forEach(function(eventName) {
+            window.addEventListener(eventName, function() {
+                humanSignal.value = '1';
+            }, { once: true, passive: true });
+        });
         
         contactForm.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -282,6 +294,10 @@
                     .then(data => {
                         // Hide loading overlay
                         loadingOverlay.style.display = 'none';
+
+                        if (data.contact_token) {
+                            contactToken.value = data.contact_token;
+                        }
                         
                         if (data.success) {
                             // Reset form
@@ -289,6 +305,10 @@
                             
                             // Reset timestamp
                             document.getElementById('formTimestamp').value = Date.now() / 1000;
+                            humanSignal.value = '1';
+                            if (data.contact_token) {
+                                contactToken.value = data.contact_token;
+                            }
                             
                             // Show success message
                             Swal.fire({
