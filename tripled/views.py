@@ -3777,10 +3777,10 @@ def edit_form(request):
 
 @login_required
 @admin_required
-def delete_form(request):
+def delete_form(request, form_id=None):
     """Delete a downloadable form"""
     if request.method == 'POST':
-        form_id = request.POST.get('form_id')
+        form_id = form_id or request.POST.get('form_id')
         form_obj = get_object_or_404(DownloadableForm, id=form_id)
         
         try:
