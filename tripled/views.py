@@ -3685,10 +3685,10 @@ def edit_gallery_image(request):
 
 @login_required
 @admin_required
-def delete_gallery_image(request):
+def delete_gallery_image(request, image_id=None):
     """Delete a gallery image"""
     if request.method == 'POST':
-        image_id = request.POST.get('image_id')
+        image_id = image_id or request.POST.get('image_id')
         gallery_image = get_object_or_404(Gallery, id=image_id)
         
         try:
